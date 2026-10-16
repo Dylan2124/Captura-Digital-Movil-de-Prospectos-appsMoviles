@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.capturaprospectos.utils.IndicadorInternet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,8 +34,12 @@ fun LoginScreen(){
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Bienvenido a TherionLabs") })}
-
+                title = { Text("Bienvenido a TherionLabs") },
+                actions = {
+                    IndicadorInternet(modifier = Modifier.padding(end = 16.dp))
+                }
+            )
+        }
     ) {
         Padding ->
         Column(

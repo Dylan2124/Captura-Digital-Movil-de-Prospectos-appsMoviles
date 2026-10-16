@@ -52,6 +52,7 @@ import com.example.capturaprospectos.ui.theme.Acento
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import com.example.capturaprospectos.utils.IndicadorInternet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,6 +85,9 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         Text("Lista de formularios", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                         Text("${prospectosFiltrados.size} PROSPECTOS", style = MaterialTheme.typography.labelSmall, color = TextoSecundario)
                     }
+                },
+                actions = {
+                    IndicadorInternet(modifier = Modifier.padding(end = 16.dp))
                 }
             )
         },

@@ -36,6 +36,7 @@ import com.example.capturaprospectos.ui.theme.Acento
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import com.example.capturaprospectos.utils.IndicadorInternet
 
 /** Pantalla 2 del prototipo: MENÚ (RF - Menú de Navegación Principal). */
 @Composable
@@ -66,7 +67,10 @@ fun MenuScreen(navController: NavHostController, appState: AppState) {
                     Text(nombre, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text("¿Qué deseas hacer hoy?", color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
                 }
-                TextButton(onClick = { cerrarSesion() }) { Text("Salir", color = Acento) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IndicadorInternet(mostrarTexto = true, modifier = Modifier.padding(end = 8.dp))
+                    TextButton(onClick = { cerrarSesion() }) { Text("Salir", color = Acento) }
+                }
             }
             Spacer(Modifier.height(28.dp))
 
