@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.capturaprospectos.data.AppState
+import com.example.capturaprospectos.utils.ObservarConexionYAutoSincronizar
 import com.example.capturaprospectos.views.ListaFormulariosScreen
 import com.example.capturaprospectos.views.LoginScreen
 import com.example.capturaprospectos.views.MenuScreen
@@ -13,6 +14,9 @@ import com.example.capturaprospectos.views.PendientesScreen
 
 @Composable
 fun AppNavigation(navController: NavHostController, appState: AppState) {
+    // Monitorea automáticamente la conexión y sincroniza los pendientes apenas haya Internet
+    ObservarConexionYAutoSincronizar(appState)
+
     NavHost(
         navController = navController,
         // TEMPORAL: mientras el Login no navegue, se arranca en el menú para poder probar.
