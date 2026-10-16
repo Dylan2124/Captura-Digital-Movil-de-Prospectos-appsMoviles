@@ -1,11 +1,13 @@
 package com.example.capturaprospectos.data
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import com.example.capturaprospectos.data.room.AppDatabase
 import com.example.capturaprospectos.data.room.ProspectoEntity
+import com.example.capturaprospectos.utils.verificarConexionInternet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,14 +45,21 @@ class AppState(private val db: AppDatabase) {
     /** Devuelve false si el RUT ya existe (RF01: ID duplicado). Fecha y estado son automáticos (RF02). */
     fun guardarProspecto(
         rut: String, nombre: String, correo: String, telefono: String,
-        nivel: String, curso: String, modalidad: String, canal: String
+        nivel: String, curso: String, modalidad: String, canal: String,
+        context: Context
     ): Boolean {
         if (prospectos.any { it.rut == rut }) return false
+        val estaConectado = verificarConexionInternet(context)
         val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+        val estadoInicial = if (estaConectado) {
+            ProspectoEntity.ESTADO_SINCRONIZADO
+        } else {
+            ProspectoEntity.ESTADO_PENDIENTE
+        }
         val entidad = ProspectoEntity(
             rut = rut, nombre = nombre.trim(), correo = correo.trim(), telefono = telefono,
             nivelEducativo = nivel, curso = curso, modalidad = modalidad, canalContacto = canal,
-            fechaCaptura = fecha, emailCaptador = captadorActual ?: ""
+            fechaCaptura = fecha, estado = estadoInicial, emailCaptador = captadorActual ?: ""
         )
         scope.launch {
             val id = db.prospectoDao().insertar(entidad)
@@ -58,6 +67,7 @@ class AppState(private val db: AppDatabase) {
         }
         return true
     }
+
     // Solo los registros que aún no se enviaron al servidor
     val pendientes: List<ProspectoEntity>
         get() = prospectos.filter { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
@@ -66,19 +76,29 @@ class AppState(private val db: AppDatabase) {
         private set
 
     /**
-     * Envía los pendientes uno a uno. Si uno falla, se detiene y los demás
+     * Envía los pendientes uno a uno. Si uno falla o no hay conexión, se detiene y los demás
      * siguen PENDIENTE para el próximo intento (RF04).
      */
-    fun sincronizarPendientes(onTerminado: (enviados: Int, fallidos: Int) -> Unit = { _, _ -> }) {
+    fun sincronizarPendientes(
+        context: Context? = null,
+        onTerminado: (enviados: Int, fallidos: Int) -> Unit = { _, _ -> }
+    ) {
         if (sincronizando) return
         val lista = pendientes
         if (lista.isEmpty()) { onTerminado(0, 0); return }
+
+        // Si se provee contexto y no hay Internet, cancelar de inmediato
+        if (context != null && !verificarConexionInternet(context)) {
+            onTerminado(0, lista.size)
+            return
+        }
+
         sincronizando = true
         scope.launch {
             var enviados = 0
             var fallidos = 0
             for (p in lista) {
-                if (enviarAlServidor(p)) {
+                if (enviarAlServidor(p, context)) {
                     db.prospectoDao().actualizarEstado(p.id, ProspectoEntity.ESTADO_SINCRONIZADO)
                     val i = prospectos.indexOfFirst { it.id == p.id }
                     if (i >= 0) prospectos[i] = prospectos[i].copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
@@ -94,8 +114,11 @@ class AppState(private val db: AppDatabase) {
     }
 
     // TODO (quien haga Retrofit): reemplazar por la llamada real a la API Spring Boot.
-// Debe devolver true solo si el servidor respondió OK.
-    private suspend fun enviarAlServidor(p: ProspectoEntity): Boolean {
+    // Debe devolver true solo si el servidor respondió OK y hay conexión.
+    private suspend fun enviarAlServidor(p: ProspectoEntity, context: Context? = null): Boolean {
+        if (context != null && !verificarConexionInternet(context)) {
+            return false
+        }
         delay(400) // simulación mientras no exista la API
         return true
     }
