@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -42,6 +43,8 @@ import com.example.capturaprospectos.ui.theme.ErrorNaranja
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import com.example.capturaprospectos.utils.IndicadorInternet
+import com.example.capturaprospectos.utils.verificarConexionInternet
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,15 +53,23 @@ fun PendientesScreen(navController: NavHostController, appState: AppState) {
     val pendientes = appState.pendientes   // se actualiza solo al cambiar el estado
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun sincronizar() {
-        appState.sincronizarPendientes { enviados, fallidos ->
+        val tieneInternet = verificarConexionInternet(context)
+        if (!tieneInternet) {
+            scope.launch {
+                snackbar.showSnackbar("Sin conexión a Internet. No es posible sincronizar")
+            }
+            return
+        }
+        appState.sincronizarPendientes(context) { enviados, fallidos ->
             scope.launch {
                 snackbar.showSnackbar(
                     when {
-                        fallidos > 0 -> "Falló el envío. $enviados enviados, el resto sigue pendiente"
+                        fallidos > 0 -> "Falló la sincronización. Compruebe su red"
                         enviados == 0 -> "No hay registros pendientes"
-                        else -> "$enviados registro(s) sincronizado(s)"
+                        else -> "$enviados registro(s) sincronizado(s) con éxito"
                     }
                 )
             }
@@ -85,6 +96,9 @@ fun PendientesScreen(navController: NavHostController, appState: AppState) {
                             color = TextoSecundario
                         )
                     }
+                },
+                actions = {
+                    IndicadorInternet(modifier = Modifier.padding(end = 16.dp))
                 }
             )
         }
