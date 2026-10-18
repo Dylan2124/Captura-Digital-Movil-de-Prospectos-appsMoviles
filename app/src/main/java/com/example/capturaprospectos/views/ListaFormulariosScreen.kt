@@ -1,5 +1,10 @@
 package com.example.capturaprospectos.views
 
+import android.content.ContentValues
+import android.content.Context
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -43,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -52,10 +59,14 @@ import com.example.capturaprospectos.ui.theme.Acento
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaFormulariosScreen(navController: NavHostController, appState: AppState) {
+    val context = LocalContext.current
     val prospectos = appState.prospectos
     var filtroFecha by remember { mutableStateOf("") }
     val selectedIds = remember { mutableStateMapOf<Long, Boolean>() }
@@ -83,6 +94,14 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                     Column {
                         Text("Lista de formularios", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                         Text("${prospectosFiltrados.size} PROSPECTOS", style = MaterialTheme.typography.labelSmall, color = TextoSecundario)
+                    }
+                },
+                actions = {
+                    // Botón para exportar a CSV con el nombre usuario_dia_mes.csv
+                    IconButton(onClick = {
+                        exportarProspectosACSV(context, appState)
+                    }) {
+                        Icon(Icons.Default.Download, contentDescription = "Exportar CSV", tint = Acento)
                     }
                 }
             )
@@ -212,6 +231,50 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                 }
             }
         }
+    }
+}
+
+/** Genera un único archivo CSV con todos los registros y nombre 'registro_mes_dia_año.csv' (ej: registro_10_17_26.csv) */
+// Uso un recuros nativo de android.
+private fun exportarProspectosACSV(context: Context, appState: AppState) {
+    val prospectos = appState.prospectos
+    if (prospectos.isEmpty()) {
+        Toast.makeText(context, "No hay prospectos para exportar", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    // Formato mes, día y año de 2 dígitos (ej: 10_17_26 para 17 de octubre de 2026)
+    val fechaFormateada = SimpleDateFormat("MM_dd_yy", Locale.getDefault()).format(Date())
+    val nombreArchivo = "registro_${fechaFormateada}.csv"
+
+    try {
+        val contenido = StringBuilder()
+        // Cabecera con punto y coma (;) para que Excel en español separe las columnas correctamente
+        contenido.append("ID;RUT;Nombre;Correo;Telefono;NivelEducativo;Curso;Modalidad;Canal;Fecha;Estado;Captador\n")
+
+        // Agregar todos los prospectos en el mismo archivo
+        for (p in prospectos) {
+            contenido.append("${p.id};${p.rut};\"${p.nombre}\";${p.correo};${p.telefono};${p.nivelEducativo};\"${p.curso}\";${p.modalidad};${p.canalContacto};${p.fechaCaptura};${p.estado};${p.emailCaptador}\n")
+        }
+
+        val resolver = context.contentResolver
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, nombreArchivo)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        }
+        val uri = resolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+        uri?.let {
+            resolver.openOutputStream(it)?.use { outputStream ->
+                outputStream.write(contenido.toString().toByteArray())
+            }
+            Toast.makeText(context, "Archivo '$nombreArchivo' guardado en Descargas", Toast.LENGTH_LONG).show()
+        } ?: run {
+            Toast.makeText(context, "No se pudo crear el archivo", Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(context, "Error al exportar: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
 

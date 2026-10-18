@@ -146,7 +146,7 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
+                .imePadding() // Recurso nativo: Detecta eventos del taclado para ajusta el diceño
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
