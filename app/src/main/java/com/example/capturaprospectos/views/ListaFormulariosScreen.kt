@@ -1,5 +1,10 @@
 package com.example.capturaprospectos.views
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -33,6 +39,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -43,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -54,12 +62,69 @@ import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
 import com.example.capturaprospectos.utils.IndicadorInternet
 
+/**
+ * Función que activa el motor de vibración nativo del dispositivo Android.
+ * Emite un pulso de vibración para alertar al usuario antes de eliminar.
+ */
+private fun vibrarTelefono(context: Context) {
+    try {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            vibratorManager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createOneShot(350, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(350)
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaFormulariosScreen(navController: NavHostController, appState: AppState) {
+    val context = LocalContext.current
     val prospectos = appState.prospectos
     var filtroFecha by remember { mutableStateOf("") }
     val selectedIds = remember { mutableStateMapOf<Long, Boolean>() }
+    var mostrarDialogoConfirmacion by remember { mutableStateOf(false) }
+
+    // Diálogo nativo de confirmación con alerta previa
+    if (mostrarDialogoConfirmacion) {
+        val cantidad = selectedIds.size
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoConfirmacion = false },
+            title = { Text("Confirmar eliminación", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("¿Está seguro que desea eliminar $cantidad prospecto(s) seleccionado(s)? Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val idsToDelete = selectedIds.filter { it.value }.keys.toList()
+                        appState.eliminarProspectos(idsToDelete)
+                        selectedIds.clear()
+                        mostrarDialogoConfirmacion = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.onError)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoConfirmacion = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     // Filtrar prospectos por fecha ingresada (coincidencia parcial, ej: "12-10-2026")
     val prospectosFiltrados = remember(prospectos, filtroFecha) {
@@ -113,9 +178,8 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         )
                         Button(
                             onClick = {
-                                val idsToDelete = selectedIds.filter { it.value }.keys.toList()
-                                appState.eliminarProspectos(idsToDelete)
-                                selectedIds.clear()
+                                vibrarTelefono(context)
+                                mostrarDialogoConfirmacion = true
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
