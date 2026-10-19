@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // android.application: Para el inicio ejecutable de android
 }
 
 android {
@@ -12,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.capturaprospectos"
-        minSdk = 24
+        minSdk = 24 // Garantisa el 90% compatibilidad para los androids
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

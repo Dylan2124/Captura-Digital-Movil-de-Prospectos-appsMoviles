@@ -4,9 +4,9 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-// Tabla "prospectos". El RUT es único (RF01: ID duplicado bloquea el guardado).
-// COORDINAR con el compañero que hace Room: si él ya definió esta entidad, usar la suya
-// y solo ajustar los nombres de campos en AppState.guardarProspecto().
+/* 1 */
+// Tabla "prospectos". El RUT sera unico (RF01: ID duplicado bloquea el guardado).
+// Declaracion de las variables de los clientes.
 @Entity(tableName = "prospectos", indices = [Index(value = ["rut"], unique = true)])
 data class ProspectoEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

@@ -1,6 +1,6 @@
 package com.example.capturaprospectos.utils
 
-// Cada función devuelve null si el dato es válido, o el mensaje de error
+// Cada función devuelve null si el dato es válido o error
 // que se muestra bajo el campo (RF03: validación en tiempo real).
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")

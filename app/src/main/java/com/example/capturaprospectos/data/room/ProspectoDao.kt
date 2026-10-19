@@ -6,6 +6,7 @@ import androidx.room.Query
 
 @Dao
 interface ProspectoDao {
+    // Operaciones SQL para los datos registrados.
     @Insert
     suspend fun insertar(prospecto: ProspectoEntity): Long
 

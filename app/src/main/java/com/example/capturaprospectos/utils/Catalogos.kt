@@ -9,7 +9,8 @@ val NIVELES_EDUCATIVOS = listOf(
 
 val CURSOS = listOf(
     "Marketing Digital", "Gestión de Proyectos", "Análisis de Datos",
-    "Liderazgo y Equipos", "Seguridad Industrial", "Transformación Digital"
+    "Liderazgo y Equipos", "Seguridad Industrial", "Transformación Digital",
+    "Analista Programador"
 )
 
 val MODALIDADES = listOf("Online", "Presencial")

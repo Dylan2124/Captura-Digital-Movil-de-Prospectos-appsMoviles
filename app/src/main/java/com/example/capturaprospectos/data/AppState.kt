@@ -16,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 class AppState(private val db: AppDatabase) {
-//asdasd
     // ---- Sesión: lo completa quien haga el Login (llamar iniciarSesion al validar credenciales) ----
     var captadorActual: String? by mutableStateOf(null)
         private set

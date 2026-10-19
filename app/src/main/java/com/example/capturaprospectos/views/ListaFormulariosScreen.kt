@@ -249,7 +249,7 @@ private fun exportarProspectosACSV(context: Context, appState: AppState) {
 
     try {
         val contenido = StringBuilder()
-        // Cabecera con punto y coma (;) para que Excel en español separe las columnas correctamente
+        // Cabecera con punto y coma (;) para que Excel separe las columnas correctamente
         contenido.append("ID;RUT;Nombre;Correo;Telefono;NivelEducativo;Curso;Modalidad;Canal;Fecha;Estado;Captador\n")
 
         // Agregar todos los prospectos en el mismo archivo
