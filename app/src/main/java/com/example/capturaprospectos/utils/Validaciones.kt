@@ -7,7 +7,7 @@ private val RUT_FORMATO = Regex("^\\d{1,2}\\.?\\d{3}\\.?\\d{3}-[0-9kK]$")
 private val NOMBRE_REGEX = Regex("^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+$")
 
 
-const val VALIDAR_DIGITO_VERIFICADOR = false
+const val VALIDAR_DIGITO_VERIFICADOR = true
 
 fun esEmailValido(email: String): Boolean = EMAIL_REGEX.matches(email.trim())
 

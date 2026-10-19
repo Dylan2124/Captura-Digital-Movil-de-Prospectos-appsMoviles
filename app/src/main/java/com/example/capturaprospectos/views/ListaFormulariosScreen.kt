@@ -1,5 +1,7 @@
 package com.example.capturaprospectos.views
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.content.ContentValues
 import android.content.Context
 import android.os.Environment
@@ -75,6 +77,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaFormulariosScreen(navController: NavHostController, appState: AppState) {
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val prospectos = appState.prospectos
 
@@ -149,9 +152,12 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         )
                         Button(
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+
                                 val idsToDelete = selectedIds.filter { it.value }.keys.toList()
                                 appState.eliminarProspectos(idsToDelete)
                                 selectedIds.clear()
+
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
@@ -302,7 +308,7 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
         }
     }
 
-    // Panel Flotante de Detalles (Modal Bottom Sheet)
+
     if (prospectoSeleccionado != null) {
         ModalBottomSheet(
             onDismissRequest = { prospectoSeleccionado = null },
@@ -314,7 +320,7 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
     }
 }
 
-// --------- COMPONENTES REUTILIZABLES ---------
+
 
 @Composable
 private fun DetalleProspectoPanel(prospecto: ProspectoEntity) {
@@ -325,7 +331,7 @@ private fun DetalleProspectoPanel(prospecto: ProspectoEntity) {
             .padding(bottom = 24.dp), // Espacio extra para navegación
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Cabecera del panel
+
         Column {
             Text(
                 text = prospecto.nombre,
@@ -350,7 +356,7 @@ private fun DetalleProspectoPanel(prospecto: ProspectoEntity) {
 
         HorizontalDivider(color = TarjetaBorde)
 
-        // Filas de información organizadas
+
         FilaDetalle("RUT", prospecto.rut)
         FilaDetalle("Correo Electrónico", prospecto.correo)
         FilaDetalle("Teléfono", "+56 ${prospecto.telefono}")
