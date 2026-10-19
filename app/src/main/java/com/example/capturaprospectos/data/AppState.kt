@@ -20,14 +20,14 @@ import kotlinx.coroutines.withContext
 
 class AppState(private val db: AppDatabase) {
 
-    // ---- Sesión: lo completa quien haga el Login ----
+    
     var captadorActual: String? by mutableStateOf(null)
         private set
 
     fun iniciarSesion(email: String) { captadorActual = email }
     fun logout() { captadorActual = null }
 
-    // ---- Usuarios y Autenticación (TU CÓDIGO) ----
+    
     suspend fun verificarSiExisteUsuario(email: String): Boolean {
         return db.usuarioDao().obtenerPorEmail(email) != null
     }
@@ -43,7 +43,7 @@ class AppState(private val db: AppDatabase) {
         return usuario != null && usuario.passwordHash == pass
     }
 
-    // ---- Prospectos ----
+    
     val prospectos = mutableStateListOf<ProspectoEntity>()
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -58,7 +58,7 @@ class AppState(private val db: AppDatabase) {
     fun contarPendientes(): Int =
         prospectos.count { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
 
-    // ACTUALIZADO: Ahora recibe Context y guarda como PENDIENTE o SINCRONIZADO según si hay red
+    
     fun guardarProspecto(
         rut: String, nombre: String, correo: String, telefono: String,
         nivel: String, curso: String, modalidad: String, canal: String,
@@ -93,7 +93,7 @@ class AppState(private val db: AppDatabase) {
         }
     }
 
-    // --- LÓGICA DE RED INYECTADA (SIN DUPLICADOS) ---
+    
     val pendientes: List<ProspectoEntity>
         get() = prospectos.filter { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
 
