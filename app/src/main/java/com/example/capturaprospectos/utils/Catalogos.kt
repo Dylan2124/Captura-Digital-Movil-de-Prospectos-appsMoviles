@@ -1,7 +1,6 @@
 package com.example.capturaprospectos.utils
 
-// Datos de apoyo para las listas desplegables (consulta 4 al cliente: catálogo predefinido).
-// Reemplazar por el "Catálogo de áreas y cursos" que entregue el docente/cliente.
+
 val NIVELES_EDUCATIVOS = listOf(
     "Media completa", "Técnica incompleta", "Técnica completa",
     "Superior incompleta", "Superior completa", "Postgrado"

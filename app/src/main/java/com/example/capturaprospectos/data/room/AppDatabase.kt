@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-// 1. Agregamos UsuarioEntity a la lista y cambiamos la versión a 2
+
 @Database(entities = [ProspectoEntity::class, UsuarioEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun prospectoDao(): ProspectoDao

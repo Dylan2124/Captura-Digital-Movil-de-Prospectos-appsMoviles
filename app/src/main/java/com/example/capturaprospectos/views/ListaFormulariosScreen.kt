@@ -88,7 +88,7 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
     val focusMes = remember { FocusRequester() }
     val focusAnio = remember { FocusRequester() }
 
-    // Estado para controlar qué prospecto se muestra en el panel flotante
+
     var prospectoSeleccionado by remember { mutableStateOf<ProspectoEntity?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -294,7 +294,7 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                                     selectedIds.remove(prospecto.id)
                                 }
                             },
-                            onClick = { prospectoSeleccionado = prospecto } // Abre el panel flotante
+                            onClick = { prospectoSeleccionado = prospecto }
                         )
                     }
                 }

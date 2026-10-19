@@ -41,9 +41,9 @@ import com.example.capturaprospectos.ui.theme.TextoSecundario
 @Composable
 fun MenuScreen(navController: NavHostController, appState: AppState) {
 
-    // El AppState del docente solo guarda email; mostramos la parte antes de la "@".
+
     val nombre = appState.captadorActual?.substringBefore("@") ?: "Captador"
-    val pendientes = appState.contarPendientes() // lee estado de Compose: se actualiza solo
+    val pendientes = appState.contarPendientes()
 
     fun cerrarSesion() {
         appState.logout()

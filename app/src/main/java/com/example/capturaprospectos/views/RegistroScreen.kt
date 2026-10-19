@@ -53,7 +53,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
     var error by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
-    // Obtenemos el contexto nativo de Android para poder mostrar el mensaje flotante (Toast)
+
     val context = LocalContext.current
 
     val focusMes = remember { FocusRequester() }
@@ -212,7 +212,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                                     correo, password, nombre, apellido, fechaCompleta
                                 )
                                 if (exito) {
-                                    // Lanzamos el mensaje superpuesto justo antes de volver al Login
+
                                     Toast.makeText(context, "Registrado con éxito", Toast.LENGTH_SHORT).show()
                                     navController.popBackStack()
                                 } else {

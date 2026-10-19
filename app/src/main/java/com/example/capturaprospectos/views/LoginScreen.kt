@@ -69,13 +69,13 @@ fun LoginScreen(navController: NavHostController, appState: AppState) {
                 onValueChange = { correo = it; error = "" },
                 label = { Text("Correo Corporativo") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true, // Bloquea los saltos de línea
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next
                 ),
                 keyboardActions = KeyboardActions(
-                    onNext = { focusPassword.requestFocus() } // Salta a la contraseña
+                    onNext = { focusPassword.requestFocus() }
                 )
             )
 

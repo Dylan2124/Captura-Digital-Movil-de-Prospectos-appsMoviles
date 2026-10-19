@@ -45,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -65,15 +66,11 @@ import com.example.capturaprospectos.utils.errorTelefono
 import com.example.capturaprospectos.utils.normalizarRut
 import kotlinx.coroutines.launch
 
-/**
- * Pantallas 3 y 4 del prototipo: NUEVO FORMULARIO + VALIDACIÓN DE DATOS (RF01, RF02, RF03).
- * La validación vive en el mismo composable: cada campo calcula su error con las funciones
- * de utils/Validaciones.kt y lo pinta apenas el usuario lo toca.
- */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) {
-    // ---- Estado del formulario (mismo patrón remember/mutableStateOf del docente) ----
+
     var nombre by remember { mutableStateOf("") }
     var correo by remember { mutableStateOf("") }
     var rut by remember { mutableStateOf("") }
@@ -84,19 +81,20 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     var canal by remember { mutableStateOf("") }
     var errorDuplicado by remember { mutableStateOf<String?>(null) }
 
-    // Campos que el usuario ya tocó: el error solo se muestra después (no al abrir la pantalla)
+
     val tocados = remember { mutableStateMapOf<String, Boolean>() }
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val contexto = LocalContext.current
 
-    // ---- Errores calculados en cada recomposición = validación en tiempo real ----
+
     val eNombre = errorNombre(nombre)
     val eCorreo = errorCorreo(correo)
     val eRut = errorRut(rut) ?: errorDuplicado
     val eTelefono = errorTelefono(telefono)
 
-    // El botón solo se habilita si TODO es válido y los selectores están completos
+
     val formularioValido = eNombre == null && eCorreo == null && eRut == null &&
         eTelefono == null && nivel.isNotEmpty() && curso.isNotEmpty() &&
         modalidad.isNotEmpty() && canal.isNotEmpty()
@@ -111,10 +109,10 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     fun guardar() {
         val ok = appState.guardarProspecto(
             rut = normalizarRut(rut), nombre = nombre, correo = correo, telefono = telefono,
-            nivel = nivel, curso = curso, modalidad = modalidad, canal = canal
+            nivel = nivel, curso = curso, modalidad = modalidad, canal = canal, context = contexto
         )
         if (ok) {
-            limpiarFormulario() // RF01: el formulario se vacía para el siguiente prospecto
+            limpiarFormulario()
             scope.launch { snackbar.showSnackbar("Prospecto registrado correctamente") }
         } else {
             errorDuplicado = "Ya existe un prospecto con este RUT"
@@ -146,7 +144,7 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding() // Recurso nativo: Detecta eventos del taclado para ajusta el diceño
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
@@ -181,7 +179,7 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
                     Etiqueta("TELÉFONO")
                     CampoTexto(
                         valor = telefono,
-                        // Solo dígitos y máximo 9 (RF03: restringir a caracteres numéricos)
+
                         onCambio = { nuevo ->
                             telefono = nuevo.filter { it.isDigit() }.take(9)
                             tocados["telefono"] = true
@@ -231,8 +229,6 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     }
 }
 
-// ---------------- Componentes reutilizables del formulario ----------------
-
 @Composable
 private fun Etiqueta(texto: String) {
     Text(
@@ -258,8 +254,8 @@ private fun CampoTexto(
         placeholder = { Text(placeholder, color = TextoSecundario) },
         prefix = prefijo?.let { { Text(it) } },
         singleLine = true,
-        isError = error != null,                              // contorno en rojo
-        supportingText = error?.let { { Text(it) } },         // mensaje bajo el campo
+        isError = error != null,
+        supportingText = error?.let { { Text(it) } },
         keyboardOptions = KeyboardOptions(keyboardType = teclado),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
@@ -297,7 +293,7 @@ private fun CampoDesplegable(
     }
 }
 
-/** Botones de selección única en filas de 2 (Modalidad y Canal de contacto). */
+
 @Composable
 private fun GrupoOpciones(opciones: List<String>, seleccionada: String, onSeleccion: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
