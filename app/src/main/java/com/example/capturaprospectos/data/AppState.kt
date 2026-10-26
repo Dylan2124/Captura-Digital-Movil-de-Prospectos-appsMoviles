@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.example.capturaprospectos.data.room.AppDatabase
 import com.example.capturaprospectos.data.room.ProspectoEntity
 import com.example.capturaprospectos.data.room.UsuarioEntity
+import com.example.capturaprospectos.utils.normalizarRut
 import com.example.capturaprospectos.utils.verificarConexionInternet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,23 +58,36 @@ class AppState(private val db: AppDatabase) {
 
     fun contarPendientes(): Int =
         prospectos.count { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
-
-    
+    /***********************************************/
+    // Metodo para guardar y registrar el prospecto
     fun guardarProspecto(
         rut: String, nombre: String, correo: String, telefono: String,
         nivel: String, curso: String, modalidad: String, canal: String,
         context: Context
     ): Boolean {
-        if (prospectos.any { it.rut == rut }) return false
+        val rutLimpio = normalizarRut(rut)
 
-        val estaConectado = verificarConexionInternet(context)
+        // comparacion del nuevo como el existete rut registrado
+        if(prospectos.any { normalizarRut(it.rut) == rutLimpio }) {
+            return false // Bloqueo si ya existe
+        }
+        val estadoConectado = verificarConexionInternet(context)
         val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
-        val estadoInicial = if (estaConectado) ProspectoEntity.ESTADO_SINCRONIZADO else ProspectoEntity.ESTADO_PENDIENTE
+        val estadoInicial = if (estadoConectado) ProspectoEntity.ESTADO_SINCRONIZADO else ProspectoEntity.ESTADO_PENDIENTE
 
         val entidad = ProspectoEntity(
-            rut = rut, nombre = nombre.trim(), correo = correo.trim(), telefono = telefono,
-            nivelEducativo = nivel, curso = curso, modalidad = modalidad, canalContacto = canal,
-            fechaCaptura = fecha, estado = estadoInicial, emailCaptador = captadorActual ?: ""
+            rut = rutLimpio,
+            nombre = nombre.trim(),
+            correo = correo.trim(),
+            telefono = telefono,
+            nivelEducativo = nivel,
+            curso = curso,
+            modalidad = modalidad,
+            canalContacto = canal,
+            fechaCaptura = fecha,
+            estado = estadoInicial,
+            emailCaptador = captadorActual ?: ""
+
         )
         scope.launch {
             val id = db.prospectoDao().insertar(entidad)

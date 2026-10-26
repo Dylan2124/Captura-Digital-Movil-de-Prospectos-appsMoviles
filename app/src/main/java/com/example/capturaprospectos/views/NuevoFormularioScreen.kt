@@ -88,10 +88,17 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     val scope = rememberCoroutineScope()
     val contexto = LocalContext.current
 
+    val rutNormalisado = normalizarRut(rut)
+    val esDuplicado = appState.prospectos.any { normalizarRut(it.rut) == rutNormalisado }
 
     val eNombre = errorNombre(nombre)
     val eCorreo = errorCorreo(correo)
-    val eRut = errorRut(rut) ?: errorDuplicado
+    val eRut = when {
+        rut.isBlank() -> null
+        errorRut(rut) != null -> errorRut(rut)
+        esDuplicado -> "Ya existe un prospecto con este RUT"
+        else -> null
+    }
     val eTelefono = errorTelefono(telefono)
 
 

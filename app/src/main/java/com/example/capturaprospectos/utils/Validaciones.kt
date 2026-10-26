@@ -7,7 +7,7 @@ private val RUT_FORMATO = Regex("^\\d{1,2}\\.?\\d{3}\\.?\\d{3}-[0-9kK]$")
 private val NOMBRE_REGEX = Regex("^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+$")
 
 
-const val VALIDAR_DIGITO_VERIFICADOR = true
+const val VALIDAR_DIGITO_VERIFICADOR = false
 
 fun esEmailValido(email: String): Boolean = EMAIL_REGEX.matches(email.trim())
 
@@ -49,9 +49,7 @@ fun errorRut(rut: String): String? {
     if (!RUT_FORMATO.matches(rut.trim())) return "Formato de RUT inválido (ej: 12.345.678-9)"
     val limpio = normalizarRut(rut)
     val cuerpo = limpio.substringBefore("-")
-    val dv = limpio.substringAfter("-").first()
     if (cuerpo.length !in 7..8) return "El RUT debe tener 7 u 8 dígitos antes del guion"
-    if (VALIDAR_DIGITO_VERIFICADOR && calcularDv(cuerpo) != dv) return "El dígito verificador no corresponde"
     return null
 }
 
