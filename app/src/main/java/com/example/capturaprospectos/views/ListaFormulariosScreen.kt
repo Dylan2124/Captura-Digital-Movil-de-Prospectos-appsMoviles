@@ -1,7 +1,5 @@
 package com.example.capturaprospectos.views
 
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.content.ContentValues
 import android.content.Context
 import android.os.Environment
@@ -34,11 +32,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -58,7 +60,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -86,26 +90,40 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
     var mes by remember { mutableStateOf("") }
     var anio by remember { mutableStateOf("") }
 
+    // Variable para el filtro por tipo de carrera / curso
+    var carreraSeleccionada by remember { mutableStateOf("Todas") }
+    var menuCarreraExpandido by remember { mutableStateOf(false) }
+
     val selectedIds = remember { mutableStateMapOf<Long, Boolean>() }
 
     val focusMes = remember { FocusRequester() }
     val focusAnio = remember { FocusRequester() }
 
-
     var prospectoSeleccionado by remember { mutableStateOf<ProspectoEntity?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val opcionesCarreras = remember(prospectos.toList()) {
+        listOf("Todas") + prospectos
+            .map { it.curso.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sorted()
+    }
 
     val filtroFecha = remember(dia, mes, anio) {
         listOf(dia, mes, anio).filter { it.isNotEmpty() }.joinToString("-")
     }
 
-    val prospectosFiltrados = remember(prospectos, filtroFecha) {
-        if (filtroFecha.isBlank()) {
-            prospectos
-        } else {
-            prospectos.filter { it.fechaCaptura.contains(filtroFecha) }
+    val prospectosFiltrados = remember(prospectos.toList(), filtroFecha, carreraSeleccionada) {
+        prospectos.filter { prospecto ->
+            val coincideFecha = filtroFecha.isBlank() || prospecto.fechaCaptura.contains(filtroFecha)
+            val coincideCarrera = carreraSeleccionada == "Todas" ||
+                    prospecto.curso.equals(carreraSeleccionada, ignoreCase = true)
+            coincideFecha && coincideCarrera
         }
     }
+
+    val hayFiltrosActivos = filtroFecha.isNotBlank() || carreraSeleccionada != "Todas"
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -114,13 +132,25 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = MaterialTheme.colorScheme.onBackground)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
                     }
                 },
                 title = {
                     Column {
-                        Text("Lista de formularios", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                        Text("${prospectosFiltrados.size} PROSPECTOS", style = MaterialTheme.typography.labelSmall, color = TextoSecundario)
+                        Text(
+                            "Lista de formularios",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            "${prospectosFiltrados.size} PROSPECTOS",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextoSecundario
+                        )
                     }
                 },
                 actions = {
@@ -157,11 +187,14 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                                 val idsToDelete = selectedIds.filter { it.value }.keys.toList()
                                 appState.eliminarProspectos(idsToDelete)
                                 selectedIds.clear()
-
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onError)
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onError
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text("Eliminar", color = MaterialTheme.colorScheme.onError)
                         }
@@ -198,18 +231,29 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         }
                     },
                     placeholder = { Text("DD", color = TextoSecundario) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    ),
                     keyboardActions = KeyboardActions(onNext = { focusMes.requestFocus() }),
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Acento, unfocusedBorderColor = TarjetaBorde,
-                        focusedContainerColor = Tarjeta, unfocusedContainerColor = Tarjeta,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = Acento,
+                        unfocusedBorderColor = TarjetaBorde,
+                        focusedContainerColor = Tarjeta,
+                        unfocusedContainerColor = Tarjeta,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
 
-                Text(text = " - ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, color = TextoSecundario)
+                Text(
+                    text = " - ",
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = TextoSecundario
+                )
 
                 OutlinedTextField(
                     value = mes,
@@ -221,18 +265,31 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         }
                     },
                     placeholder = { Text("MM", color = TextoSecundario) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Next
+                    ),
                     keyboardActions = KeyboardActions(onNext = { focusAnio.requestFocus() }),
-                    modifier = Modifier.weight(1f).focusRequester(focusMes),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focusMes),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Acento, unfocusedBorderColor = TarjetaBorde,
-                        focusedContainerColor = Tarjeta, unfocusedContainerColor = Tarjeta,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = Acento,
+                        unfocusedBorderColor = TarjetaBorde,
+                        focusedContainerColor = Tarjeta,
+                        unfocusedContainerColor = Tarjeta,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
 
-                Text(text = " - ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, color = TextoSecundario)
+                Text(
+                    text = " - ",
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = TextoSecundario
+                )
 
                 OutlinedTextField(
                     value = anio,
@@ -243,22 +300,89 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         }
                     },
                     placeholder = { Text("AAAA", color = TextoSecundario) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                    modifier = Modifier.weight(1.5f).focusRequester(focusAnio),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .focusRequester(focusAnio),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Acento, unfocusedBorderColor = TarjetaBorde,
-                        focusedContainerColor = Tarjeta, unfocusedContainerColor = Tarjeta,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface, unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                        focusedBorderColor = Acento,
+                        unfocusedBorderColor = TarjetaBorde,
+                        focusedContainerColor = Tarjeta,
+                        unfocusedContainerColor = Tarjeta,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "FILTRAR POR TIPO DE CARRERA",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextoSecundario,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(8.dp))
+
+            ExposedDropdownMenuBox(
+                expanded = menuCarreraExpandido,
+                onExpandedChange = { menuCarreraExpandido = !menuCarreraExpandido },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = carreraSeleccionada,
+                    onValueChange = {},
+                    readOnly = true,
+                    singleLine = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuCarreraExpandido)
+                    },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Acento,
+                        unfocusedBorderColor = TarjetaBorde,
+                        focusedContainerColor = Tarjeta,
+                        unfocusedContainerColor = Tarjeta,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+                ExposedDropdownMenu(
+                    expanded = menuCarreraExpandido,
+                    onDismissRequest = { menuCarreraExpandido = false },
+                    containerColor = Tarjeta
+                ) {
+                    opcionesCarreras.forEach { carrera ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = carrera,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                carreraSeleccionada = carrera
+                                menuCarreraExpandido = false
+                            }
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))
 
             if (prospectosFiltrados.isEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -270,7 +394,11 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            text = if (filtroFecha.isBlank()) "No se registró nadie aún" else "No hay registros para esta fecha",
+                            text = if (!hayFiltrosActivos) {
+                                "No se registró nadie aún"
+                            } else {
+                                "No hay registros para los filtros seleccionados"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
@@ -285,29 +413,36 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(prospectosFiltrados) { prospecto ->
+                    items(
+                        items = prospectosFiltrados,
+                        key = { it.id }
+                    ) { prospecto ->
                         val isChecked = selectedIds[prospecto.id] == true
-                        ProspectoItemCard(
-                            prospecto = prospecto,
-                            isChecked = isChecked,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    selectedIds[prospecto.id] = true
-                                } else {
-                                    selectedIds.remove(prospecto.id)
-                                }
-                            },
-                            onClick = { prospectoSeleccionado = prospecto }
-                        )
+
+                        Box(modifier = Modifier.animateItem()) {
+                            ProspectoItemCard(
+                                prospecto = prospecto,
+                                isChecked = isChecked,
+                                onCheckedChange = { checked ->
+                                    if (checked) {
+                                        selectedIds[prospecto.id] = true
+                                    } else {
+                                        selectedIds.remove(prospecto.id)
+                                    }
+                                },
+                                onClick = { prospectoSeleccionado = prospecto }
+                            )
+                        }
                     }
                 }
             }
         }
     }
-
 
     if (prospectoSeleccionado != null) {
         ModalBottomSheet(
@@ -320,18 +455,15 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
     }
 }
 
-
-
 @Composable
 private fun DetalleProspectoPanel(prospecto: ProspectoEntity) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 16.dp)
-            .padding(bottom = 24.dp), // Espacio extra para navegación
+            .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-
         Column {
             Text(
                 text = prospecto.nombre,
@@ -355,7 +487,6 @@ private fun DetalleProspectoPanel(prospecto: ProspectoEntity) {
         }
 
         HorizontalDivider(color = TarjetaBorde)
-
 
         FilaDetalle("RUT", prospecto.rut)
         FilaDetalle("Correo Electrónico", prospecto.correo)
@@ -432,11 +563,14 @@ private fun ProspectoItemCard(
         shape = RoundedCornerShape(14.dp),
         color = Tarjeta,
         border = BorderStroke(1.dp, TarjetaBorde),
-        // Hace que toda la tarjeta sea cliqueable para abrir los detalles
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(

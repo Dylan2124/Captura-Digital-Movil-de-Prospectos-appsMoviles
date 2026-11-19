@@ -2,9 +2,11 @@ package com.example.capturaprospectos.data
 
 import android.content.Context
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.capturaprospectos.data.network.RetrofitClient
+import com.example.capturaprospectos.data.network.toRequest
 import com.example.capturaprospectos.data.room.AppDatabase
 import com.example.capturaprospectos.data.room.ProspectoEntity
 import com.example.capturaprospectos.data.room.UsuarioEntity
@@ -13,27 +15,30 @@ import com.example.capturaprospectos.utils.verificarConexionInternet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 
 class AppState(private val db: AppDatabase) {
 
-    
     var captadorActual: String? by mutableStateOf(null)
         private set
 
     fun iniciarSesion(email: String) { captadorActual = email }
     fun logout() { captadorActual = null }
 
-    
     suspend fun verificarSiExisteUsuario(email: String): Boolean {
         return db.usuarioDao().obtenerPorEmail(email) != null
     }
 
-    suspend fun registrarNuevoUsuario(email: String, pass: String, nombre: String, apellido: String, fechaNacimiento: String): Boolean {
+    suspend fun registrarNuevoUsuario(
+        email: String,
+        pass: String,
+        nombre: String,
+        apellido: String,
+        fechaNacimiento: String
+    ): Boolean {
         val nuevo = UsuarioEntity(email, pass, nombre, apellido, fechaNacimiento)
         val resultado = db.usuarioDao().registrar(nuevo)
         return resultado != -1L
@@ -44,22 +49,22 @@ class AppState(private val db: AppDatabase) {
         return usuario != null && usuario.passwordHash == pass
     }
 
-    
     val prospectos = mutableStateListOf<ProspectoEntity>()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun cargarProspectos() {
         scope.launch {
             val lista = db.prospectoDao().obtenerTodos()
-            prospectos.clear()
-            prospectos.addAll(lista)
+            withContext(Dispatchers.Main) {
+                prospectos.clear()
+                prospectos.addAll(lista)
+            }
         }
     }
 
     fun contarPendientes(): Int =
         prospectos.count { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
-    /***********************************************/
-    // Metodo para guardar y registrar el prospecto
+
     fun guardarProspecto(
         rut: String, nombre: String, correo: String, telefono: String,
         nivel: String, curso: String, modalidad: String, canal: String,
@@ -67,13 +72,16 @@ class AppState(private val db: AppDatabase) {
     ): Boolean {
         val rutLimpio = normalizarRut(rut)
 
-        // comparacion del nuevo como el existete rut registrado
-        if(prospectos.any { normalizarRut(it.rut) == rutLimpio }) {
-            return false // Bloqueo si ya existe
+        if (prospectos.any { normalizarRut(it.rut) == rutLimpio }) {
+            return false
         }
         val estadoConectado = verificarConexionInternet(context)
         val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
-        val estadoInicial = if (estadoConectado) ProspectoEntity.ESTADO_SINCRONIZADO else ProspectoEntity.ESTADO_PENDIENTE
+        val estadoInicial = if (estadoConectado) {
+            ProspectoEntity.ESTADO_SINCRONIZADO
+        } else {
+            ProspectoEntity.ESTADO_PENDIENTE
+        }
 
         val entidad = ProspectoEntity(
             rut = rutLimpio,
@@ -87,11 +95,23 @@ class AppState(private val db: AppDatabase) {
             fechaCaptura = fecha,
             estado = estadoInicial,
             emailCaptador = captadorActual ?: ""
-
         )
         scope.launch {
             val id = db.prospectoDao().insertar(entidad)
-            prospectos.add(0, entidad.copy(id = id))
+            val guardadoLocal = entidad.copy(id = id)
+            var estadoFinal = estadoInicial
+            if (estadoConectado) {
+                val enviado = enviarAlServidor(guardadoLocal, context)
+                estadoFinal = if (enviado) {
+                    ProspectoEntity.ESTADO_SINCRONIZADO
+                } else {
+                    ProspectoEntity.ESTADO_PENDIENTE
+                }
+                db.prospectoDao().actualizarEstado(id, estadoFinal)
+            }
+            withContext(Dispatchers.Main) {
+                prospectos.add(0, guardadoLocal.copy(estado = estadoFinal))
+            }
         }
         return true
     }
@@ -99,7 +119,11 @@ class AppState(private val db: AppDatabase) {
     fun eliminarProspectos(ids: List<Long>) {
         scope.launch {
             for (id in ids) {
-                db.prospectoDao().eliminar(id)
+                db.prospectoDao().eliminarPorId(id)
+                runCatching {
+                    val resp = RetrofitClient.api.eliminarProspecto(id)
+                    resp.isSuccessful || resp.code() == 404
+                }
             }
             withContext(Dispatchers.Main) {
                 prospectos.removeAll { it.id in ids }
@@ -107,7 +131,6 @@ class AppState(private val db: AppDatabase) {
         }
     }
 
-    
     val pendientes: List<ProspectoEntity>
         get() = prospectos.filter { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
 
@@ -120,7 +143,10 @@ class AppState(private val db: AppDatabase) {
     ) {
         if (sincronizando) return
         val lista = pendientes
-        if (lista.isEmpty()) { onTerminado(0, 0); return }
+        if (lista.isEmpty()) {
+            onTerminado(0, 0)
+            return
+        }
 
         if (context != null && !verificarConexionInternet(context)) {
             onTerminado(0, lista.size)
@@ -134,8 +160,12 @@ class AppState(private val db: AppDatabase) {
             for (p in lista) {
                 if (enviarAlServidor(p, context)) {
                     db.prospectoDao().actualizarEstado(p.id, ProspectoEntity.ESTADO_SINCRONIZADO)
-                    val i = prospectos.indexOfFirst { it.id == p.id }
-                    if (i >= 0) prospectos[i] = prospectos[i].copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
+                    withContext(Dispatchers.Main) {
+                        val i = prospectos.indexOfFirst { it.id == p.id }
+                        if (i >= 0) {
+                            prospectos[i] = prospectos[i].copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
+                        }
+                    }
                     enviados++
                 } else {
                     fallidos++
@@ -149,7 +179,11 @@ class AppState(private val db: AppDatabase) {
 
     private suspend fun enviarAlServidor(p: ProspectoEntity, context: Context? = null): Boolean {
         if (context != null && !verificarConexionInternet(context)) return false
-        delay(400) // Simulación de API
-        return true
+        return try {
+            val response = RetrofitClient.api.crearProspecto(p.toRequest())
+            response.isSuccessful
+        } catch (_: Exception) {
+            false
+        }
     }
 }

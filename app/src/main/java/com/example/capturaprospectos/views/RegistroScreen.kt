@@ -4,18 +4,26 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +42,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.capturaprospectos.data.AppState
+import com.example.capturaprospectos.data.network.RetrofitClient
+import com.example.capturaprospectos.data.network.UsuarioRegistroRequest
+import com.example.capturaprospectos.ui.theme.Acento
+import com.example.capturaprospectos.ui.theme.TextoSecundario
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -51,9 +63,9 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
     var correo by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var cargando by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-
     val context = LocalContext.current
 
     val focusMes = remember { FocusRequester() }
@@ -73,7 +85,27 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Empieza a usar Therionlabs creando una cuenta") }) }
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
+                title = {
+                    Column {
+                        Text("Registro de cuenta", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                        Text("PORTAL DUOC UC", style = MaterialTheme.typography.labelSmall, color = TextoSecundario)
+                    }
+                }
+            )
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -82,7 +114,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(text = "Nombre y Apellido", fontWeight = FontWeight.Bold)
+            Text(text = "Nombre y Apellido", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -107,7 +139,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                 )
             }
 
-            Text(text = "Fecha de nacimiento", fontWeight = FontWeight.Bold)
+            Text(text = "Fecha de nacimiento", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -130,7 +162,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                     singleLine = true
                 )
 
-                Text(text = " / ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold)
+                Text(text = " / ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
                 OutlinedTextField(
                     value = mes,
@@ -149,7 +181,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                     singleLine = true
                 )
 
-                Text(text = " / ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold)
+                Text(text = " / ", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
                 OutlinedTextField(
                     value = anio,
@@ -169,7 +201,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                 )
             }
 
-            Text(text = "Credenciales", fontWeight = FontWeight.Bold)
+            Text(text = "Credenciales", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
 
             OutlinedTextField(
                 value = correo,
@@ -195,6 +227,7 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
             }
 
             Button(
+                enabled = !cargando,
                 onClick = {
                     val fechaCompleta = "$dia/$mes/$anio"
 
@@ -203,28 +236,58 @@ fun RegistroScreen(navController: NavHostController, appState: AppState) {
                     } else if (!esFechaValida(fechaCompleta)) {
                         error = "La fecha de nacimiento no es válida. Revisa el formato."
                     } else {
+                        cargando = true
+                        error = ""
                         scope.launch {
-                            val existe = appState.verificarSiExisteUsuario(correo)
-                            if (existe) {
-                                error = "Este correo ya está registrado"
-                            } else {
-                                val exito = appState.registrarNuevoUsuario(
-                                    correo, password, nombre, apellido, fechaCompleta
+                            try {
+                                val request = UsuarioRegistroRequest(
+                                    correo = correo.trim(),
+                                    password = password,
+                                    nombre = nombre.trim(),
+                                    apellido = apellido.trim(),
+                                    fechaNacimiento = fechaCompleta
                                 )
-                                if (exito) {
 
-                                    Toast.makeText(context, "Registrado con éxito", Toast.LENGTH_SHORT).show()
+                                val response = RetrofitClient.api.registrarUsuario(request)
+
+                                if (response.isSuccessful) {
+                                    // Opcional: guardar también en Room para respaldo/uso offline
+                                    appState.registrarNuevoUsuario(
+                                        correo.trim(),
+                                        password,
+                                        nombre.trim(),
+                                        apellido.trim(),
+                                        fechaCompleta
+                                    )
+
+                                    val mensajeServidor = response.body() ?: "Registrado con éxito"
+                                    Toast.makeText(context, mensajeServidor, Toast.LENGTH_LONG).show()
                                     navController.popBackStack()
                                 } else {
-                                    error = "Hubo un error al guardar tu cuenta"
+                                    val mensajeError = response.errorBody()?.string()
+                                        ?: "No se pudo completar el registro (${response.code()})"
+                                    error = mensajeError
                                 }
+                            } catch (e: Exception) {
+                                error = "Error de conexión con el servidor: ${e.localizedMessage ?: "revisa el backend"}"
+                            } finally {
+                                cargando = false
                             }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Registrarse")
+                Text(if (cargando) "Registrando..." else "Registrarse")
+            }
+
+            // Opción de texto abajo para devolverse en caso de ya tener cuenta o no querer registrarse
+            Spacer(Modifier.height(4.dp))
+            TextButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("¿Ya tienes cuenta? Inicia sesión", color = Acento)
             }
         }
     }

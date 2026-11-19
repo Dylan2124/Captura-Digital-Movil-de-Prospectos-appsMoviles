@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 
-@Database(entities = [ProspectoEntity::class, UsuarioEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ProspectoEntity::class, UsuarioEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun prospectoDao(): ProspectoDao
 
@@ -23,6 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "captura_prospectos_db"
+
                 )
                     .fallbackToDestructiveMigration()
                     .build().also { INSTANCE = it }
