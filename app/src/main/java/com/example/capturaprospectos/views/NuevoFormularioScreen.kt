@@ -37,6 +37,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,12 +51,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.capturaprospectos.data.AppState
+import com.example.capturaprospectos.data.room.ProspectoEntity
 import com.example.capturaprospectos.ui.theme.Acento
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import com.example.capturaprospectos.ui.viewmodel.ProspectoUiState
+import com.example.capturaprospectos.ui.viewmodel.ProspectoViewModel
 import com.example.capturaprospectos.utils.CANALES_CONTACTO
 import com.example.capturaprospectos.utils.CURSOS
 import com.example.capturaprospectos.utils.MODALIDADES
@@ -65,11 +71,18 @@ import com.example.capturaprospectos.utils.errorRut
 import com.example.capturaprospectos.utils.errorTelefono
 import com.example.capturaprospectos.utils.normalizarRut
 import kotlinx.coroutines.launch
-
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) {
+    val contexto = LocalContext.current
+    val prospectoViewModel: ProspectoViewModel = viewModel(
+        factory = ProspectoViewModel.factory(contexto)
+    )
+    val prospectoUiState by prospectoViewModel.uiState.collectAsState()
 
     var nombre by remember { mutableStateOf("") }
     var correo by remember { mutableStateOf("") }
@@ -81,15 +94,27 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     var canal by remember { mutableStateOf("") }
     var errorDuplicado by remember { mutableStateOf<String?>(null) }
 
-
     val tocados = remember { mutableStateMapOf<String, Boolean>() }
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val contexto = LocalContext.current
 
-    val rutNormalisado = normalizarRut(rut)
-    val esDuplicado = appState.prospectos.any { normalizarRut(it.rut) == rutNormalisado }
+    LaunchedEffect(prospectoUiState) {
+        when (val state = prospectoUiState) {
+            is ProspectoUiState.Exito -> {
+                snackbar.showSnackbar(state.mensaje)
+                prospectoViewModel.limpiarEstado()
+            }
+            is ProspectoUiState.Error -> {
+                snackbar.showSnackbar(state.mensaje)
+                prospectoViewModel.limpiarEstado()
+            }
+            else -> Unit
+        }
+    }
+
+    val rutNormalizado = normalizarRut(rut)
+    val esDuplicado = appState.prospectos.any { normalizarRut(it.rut) == rutNormalizado }
 
     val eNombre = errorNombre(nombre)
     val eCorreo = errorCorreo(correo)
@@ -101,10 +126,9 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     }
     val eTelefono = errorTelefono(telefono)
 
-
     val formularioValido = eNombre == null && eCorreo == null && eRut == null &&
-        eTelefono == null && nivel.isNotEmpty() && curso.isNotEmpty() &&
-        modalidad.isNotEmpty() && canal.isNotEmpty()
+            eTelefono == null && nivel.isNotEmpty() && curso.isNotEmpty() &&
+            modalidad.isNotEmpty() && canal.isNotEmpty()
 
     fun limpiarFormulario() {
         nombre = ""; correo = ""; rut = ""; telefono = ""
@@ -114,11 +138,35 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
     }
 
     fun guardar() {
+        val rutLimpio = normalizarRut(rut)
         val ok = appState.guardarProspecto(
-            rut = normalizarRut(rut), nombre = nombre, correo = correo, telefono = telefono,
-            nivel = nivel, curso = curso, modalidad = modalidad, canal = canal, context = contexto
+            rut = rutLimpio,
+            nombre = nombre,
+            correo = correo,
+            telefono = telefono,
+            nivel = nivel,
+            curso = curso,
+            modalidad = modalidad,
+            canal = canal,
+            context = contexto
         )
         if (ok) {
+            val fechaActual = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date())
+            val entidad = ProspectoEntity(
+                id = 0L,
+                rut = rutLimpio,
+                nombre = nombre.trim(),
+                correo = correo.trim(),
+                telefono = telefono.trim(),
+                nivelEducativo = nivel,
+                curso = curso,
+                modalidad = modalidad,
+                canalContacto = canal,
+                fechaCaptura = fechaActual,
+                estado = ProspectoEntity.ESTADO_PENDIENTE,
+                emailCaptador = appState.captadorActual ?: ""
+            )
+            prospectoViewModel.guardarProspecto(entidad)
             limpiarFormulario()
             scope.launch { snackbar.showSnackbar("Prospecto registrado correctamente") }
         } else {
@@ -186,7 +234,6 @@ fun NuevoFormularioScreen(navController: NavHostController, appState: AppState) 
                     Etiqueta("TELÉFONO")
                     CampoTexto(
                         valor = telefono,
-
                         onCambio = { nuevo ->
                             telefono = nuevo.filter { it.isDigit() }.take(9)
                             tocados["telefono"] = true
@@ -287,7 +334,6 @@ private fun CampoDesplegable(
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
-        // Capa transparente para que todo el campo abra el menú
         Box(Modifier.matchParentSize().clickable { abierto = true })
         DropdownMenu(expanded = abierto, onDismissRequest = { abierto = false }) {
             opciones.forEach { opcion ->
@@ -299,7 +345,6 @@ private fun CampoDesplegable(
         }
     }
 }
-
 
 @Composable
 private fun GrupoOpciones(opciones: List<String>, seleccionada: String, onSeleccion: (String) -> Unit) {

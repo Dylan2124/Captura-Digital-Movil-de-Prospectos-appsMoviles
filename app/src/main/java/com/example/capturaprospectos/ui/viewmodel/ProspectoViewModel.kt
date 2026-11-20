@@ -1,8 +1,12 @@
 package com.example.capturaprospectos.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.capturaprospectos.data.network.RetrofitClient
 import com.example.capturaprospectos.data.repository.ProspectoRepository
+import com.example.capturaprospectos.data.room.AppDatabase
 import com.example.capturaprospectos.data.room.ProspectoEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,5 +71,25 @@ class ProspectoViewModel(
 
     fun limpiarEstado() {
         _uiState.value = ProspectoUiState.Reposo
+    }
+
+    companion object {
+        fun factory(context: Context): ViewModelProvider.Factory {
+            val appContext = context.applicationContext
+            return object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    if (modelClass.isAssignableFrom(ProspectoViewModel::class.java)) {
+                        val db = AppDatabase.getInstance(appContext)
+                        val repo = ProspectoRepository(
+                            apiService = RetrofitClient.api,
+                            prospectoDao = db.prospectoDao()
+                        )
+                        return ProspectoViewModel(repo) as T
+                    }
+                    throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+                }
+            }
+        }
     }
 }

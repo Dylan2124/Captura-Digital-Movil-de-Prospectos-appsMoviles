@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -51,6 +52,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.capturaprospectos.data.AppState
 import com.example.capturaprospectos.data.room.ProspectoEntity
@@ -74,6 +78,8 @@ import com.example.capturaprospectos.ui.theme.Acento
 import com.example.capturaprospectos.ui.theme.Tarjeta
 import com.example.capturaprospectos.ui.theme.TarjetaBorde
 import com.example.capturaprospectos.ui.theme.TextoSecundario
+import com.example.capturaprospectos.ui.viewmodel.ProspectoUiState
+import com.example.capturaprospectos.ui.viewmodel.ProspectoViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,7 +89,27 @@ import java.util.Locale
 fun ListaFormulariosScreen(navController: NavHostController, appState: AppState) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val prospectos = appState.prospectos
+    val prospectoViewModel: ProspectoViewModel = viewModel(
+        factory = ProspectoViewModel.factory(context)
+    )
+    val prospectosFlow by prospectoViewModel.prospectos.collectAsState()
+    val prospectoUiState by prospectoViewModel.uiState.collectAsState()
+
+    val prospectos = if (prospectosFlow.isNotEmpty()) prospectosFlow else appState.prospectos
+
+    LaunchedEffect(prospectoUiState) {
+        when (val state = prospectoUiState) {
+            is ProspectoUiState.Exito -> {
+                Toast.makeText(context, state.mensaje, Toast.LENGTH_SHORT).show()
+                prospectoViewModel.limpiarEstado()
+            }
+            is ProspectoUiState.Error -> {
+                Toast.makeText(context, state.mensaje, Toast.LENGTH_SHORT).show()
+                prospectoViewModel.limpiarEstado()
+            }
+            else -> Unit
+        }
+    }
 
     // Variables para el filtro de fecha
     var dia by remember { mutableStateOf("") }
@@ -154,6 +180,13 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                     }
                 },
                 actions = {
+                    IconButton(onClick = { prospectoViewModel.sincronizarDesdeServidor() }) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Sincronizar desde servidor",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                     IconButton(onClick = { exportarProspectosACSV(context, appState) }) {
                         Icon(Icons.Default.Download, contentDescription = "Exportar CSV", tint = Acento)
                     }
@@ -185,6 +218,10 @@ fun ListaFormulariosScreen(navController: NavHostController, appState: AppState)
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
 
                                 val idsToDelete = selectedIds.filter { it.value }.keys.toList()
+                                val entidadesAEliminar = prospectos.filter { it.id in idsToDelete }
+                                entidadesAEliminar.forEach { prospecto ->
+                                    prospectoViewModel.eliminarProspecto(prospecto)
+                                }
                                 appState.eliminarProspectos(idsToDelete)
                                 selectedIds.clear()
                             },

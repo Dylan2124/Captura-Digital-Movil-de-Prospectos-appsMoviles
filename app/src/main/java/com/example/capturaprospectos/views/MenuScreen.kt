@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +41,6 @@ import com.example.capturaprospectos.ui.theme.TextoSecundario
 /** Pantalla 2 del prototipo: MENÚ (RF - Menú de Navegación Principal). */
 @Composable
 fun MenuScreen(navController: NavHostController, appState: AppState) {
-
 
     val nombre = appState.captadorActual?.substringBefore("@") ?: "Captador"
     val pendientes = appState.contarPendientes()
@@ -90,6 +90,13 @@ fun MenuScreen(navController: NavHostController, appState: AppState) {
                 descripcion = "Formularios aún sin ser enviados",
                 contador = pendientes,
                 onClick = { navController.navigate("pendientes") }
+            )
+            Spacer(Modifier.height(12.dp))
+            OpcionMenu(
+                icono = Icons.Default.Info,
+                titulo = "Guías y referencia externa",
+                descripcion = "Consultar información de apoyo vía API externa",
+                onClick = { navController.navigate("referencias_externas") }
             )
         }
     }

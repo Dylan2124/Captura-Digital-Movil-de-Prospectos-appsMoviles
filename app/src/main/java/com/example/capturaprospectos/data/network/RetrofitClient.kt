@@ -8,9 +8,8 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // 10.0.2.2 apunta al localhost de tu PC desde el emulador Android
-
-    private const val BASE_URL = "http://localhost:8080/"
+    // URL base del backend Spring Boot desplegado en Amazon EC2
+    const val BASE_URL = "http://52.6.136.129:8080/"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -31,5 +30,4 @@ object RetrofitClient {
             .build()
             .create(ApiService::class.java)
     }
-
 }

@@ -11,6 +11,7 @@ import com.example.capturaprospectos.views.MenuScreen
 import com.example.capturaprospectos.views.NuevoFormularioScreen
 import com.example.capturaprospectos.views.OnboardingScreen
 import com.example.capturaprospectos.views.PendientesScreen
+import com.example.capturaprospectos.views.ReferenciasExternasScreen
 import com.example.capturaprospectos.views.RegistroScreen
 import com.example.capturaprospectos.views.SplashScreen
 
@@ -58,6 +59,9 @@ fun AppNavigation(navController: NavHostController, appState: AppState) {
         // 8. Pantalla de elementos pendientes o sincronización
         composable("pendientes") {
             PendientesScreen(navController = navController, appState = appState)
+        }
+        composable("referencias_externas") {
+            ReferenciasExternasScreen(navController = navController)
         }
     }
 }
