@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.capturaprospectos.data.sync.SyncScheduler
 
 sealed interface ProspectoUiState {
     data object Reposo : ProspectoUiState
@@ -71,6 +72,16 @@ class ProspectoViewModel(
 
     fun limpiarEstado() {
         _uiState.value = ProspectoUiState.Reposo
+    }
+
+    fun guardarProspectoSinConexion(context: Context, prospecto: ProspectoEntity) {
+        viewModelScope.launch {
+            _uiState.value = ProspectoUiState.Cargando
+            val borradorLocal = prospecto.copy(estado = ProspectoEntity.ESTADO_PENDIENTE)
+            repository.guardarSoloLocal(borradorLocal) // inserta en Room y devuelve el ID generado
+            SyncScheduler.encolarSincronizacion(context)
+            _uiState.value = ProspectoUiState.Exito("Guardado localmente. Se sincronizará al detectar red")
+        }
     }
 
     companion object {

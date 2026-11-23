@@ -10,6 +10,7 @@ import com.example.capturaprospectos.data.network.toRequest
 import com.example.capturaprospectos.data.room.AppDatabase
 import com.example.capturaprospectos.data.room.ProspectoEntity
 import com.example.capturaprospectos.data.room.UsuarioEntity
+import com.example.capturaprospectos.data.sync.SyncScheduler
 import com.example.capturaprospectos.utils.normalizarRut
 import com.example.capturaprospectos.utils.verificarConexionInternet
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,14 @@ class AppState(private val db: AppDatabase) {
         }
     }
 
+    fun onNetworkAvailable(context: Context) {
+        SyncScheduler.encolarSincronizacion(context.applicationContext)
+        scope.launch {
+            kotlinx.coroutines.delay(2500)
+            cargarProspectos()
+        }
+    }
+
     fun contarPendientes(): Int =
         prospectos.count { it.estado == ProspectoEntity.ESTADO_PENDIENTE }
 
@@ -75,7 +84,9 @@ class AppState(private val db: AppDatabase) {
         if (prospectos.any { normalizarRut(it.rut) == rutLimpio }) {
             return false
         }
-        val estadoConectado = verificarConexionInternet(context)
+
+        val appContext = context.applicationContext
+        val estadoConectado = verificarConexionInternet(appContext)
         val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault()).format(Date())
         val estadoInicial = if (estadoConectado) {
             ProspectoEntity.ESTADO_SINCRONIZADO
@@ -96,12 +107,14 @@ class AppState(private val db: AppDatabase) {
             estado = estadoInicial,
             emailCaptador = captadorActual ?: ""
         )
+
         scope.launch {
             val id = db.prospectoDao().insertar(entidad)
             val guardadoLocal = entidad.copy(id = id)
             var estadoFinal = estadoInicial
+
             if (estadoConectado) {
-                val enviado = enviarAlServidor(guardadoLocal, context)
+                val enviado = enviarAlServidor(guardadoLocal, appContext)
                 estadoFinal = if (enviado) {
                     ProspectoEntity.ESTADO_SINCRONIZADO
                 } else {
@@ -109,6 +122,9 @@ class AppState(private val db: AppDatabase) {
                 }
                 db.prospectoDao().actualizarEstado(id, estadoFinal)
             }
+
+            SyncScheduler.encolarSincronizacion(appContext)
+
             withContext(Dispatchers.Main) {
                 prospectos.add(0, guardadoLocal.copy(estado = estadoFinal))
             }
@@ -181,7 +197,13 @@ class AppState(private val db: AppDatabase) {
         if (context != null && !verificarConexionInternet(context)) return false
         return try {
             val response = RetrofitClient.api.crearProspecto(p.toRequest())
-            response.isSuccessful
+            if (response.isSuccessful) {
+                true
+            } else {
+                val errorBody = response.errorBody()?.string().orEmpty()
+                response.code() == 400 &&
+                        errorBody.contains("Ya existe un prospecto con el RUT", ignoreCase = true)
+            }
         } catch (_: Exception) {
             false
         }

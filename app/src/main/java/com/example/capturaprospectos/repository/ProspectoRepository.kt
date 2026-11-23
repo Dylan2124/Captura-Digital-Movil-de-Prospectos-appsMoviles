@@ -21,7 +21,9 @@ class ProspectoRepository(
         if (!response.isSuccessful) {
             error("Error al obtener prospectos (${response.code()})")
         }
-        val entidades = response.body().orEmpty().map { it.toEntity() }
+        val entidades = response.body().orEmpty().map {
+            it.toEntity().copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
+        }
         entidades.forEach { prospectoDao.insertar(it) }
         entidades
     }
@@ -29,11 +31,19 @@ class ProspectoRepository(
     suspend fun crearProspecto(prospecto: ProspectoEntity): Result<ProspectoEntity> = runCatching {
         val request: ProspectoRequest = prospecto.toRequest()
         val response = apiService.crearProspecto(request)
+
         if (!response.isSuccessful) {
-            error("Error al crear prospecto (${response.code()})")
+            val errorMsg = response.errorBody()?.string().orEmpty()
+            if (response.code() == 400 && errorMsg.contains("Ya existe un prospecto con el RUT", ignoreCase = true)) {
+                val yaSincronizado = prospecto.copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
+                prospectoDao.insertar(yaSincronizado)
+                return@runCatching yaSincronizado
+            }
+            error("Error al crear prospecto (${response.code()}) ${errorMsg.take(120)}")
         }
-        val guardado = response.body()?.toEntity(idLocal = prospecto.id)
-            ?: prospecto.copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
+
+        val guardado = (response.body()?.toEntity(idLocal = prospecto.id) ?: prospecto)
+            .copy(estado = ProspectoEntity.ESTADO_SINCRONIZADO)
         prospectoDao.insertar(guardado)
         guardado
     }
@@ -58,4 +68,11 @@ class ProspectoRepository(
         }
         prospectoDao.eliminar(prospecto)
     }
+
+    suspend fun guardarSoloLocal(prospecto: ProspectoEntity): Long {
+        val local = prospecto.copy(estado = ProspectoEntity.ESTADO_PENDIENTE)
+        return prospectoDao.insertar(local)
+    }
+
+
 }

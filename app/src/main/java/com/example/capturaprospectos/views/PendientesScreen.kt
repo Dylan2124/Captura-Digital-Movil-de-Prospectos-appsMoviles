@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -50,6 +51,10 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PendientesScreen(navController: NavHostController, appState: AppState) {
+    LaunchedEffect(Unit) {
+        appState.cargarProspectos()
+    }
+
     val pendientes = appState.pendientes
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()

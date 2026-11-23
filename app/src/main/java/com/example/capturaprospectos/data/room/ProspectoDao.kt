@@ -37,4 +37,7 @@ interface ProspectoDao {
 
     @Query("DELETE FROM prospectos WHERE id = :id")
     suspend fun eliminarPorId(id: Long): Int
+
+    @Query("SELECT * FROM prospectos WHERE estado = :estado ORDER BY id ASC")
+    suspend fun obtenerPorEstado(estado: String): List<ProspectoEntity>
 }
